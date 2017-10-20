@@ -1,5 +1,6 @@
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -10,6 +11,9 @@ import javax.swing.table.DefaultTableModel;
 /* Assumptions
  * grades: A, A+ are 4.0, A- = 3.7, etc.. (follows UVA grading scheme)
  * current GPA is based only on previous and current courses
+ * only current and future courses empty courses will be considered for calculating what the grade needs to be
+ * (you can't change the past)
+ *
  */
 
 public class Courses {
@@ -65,10 +69,10 @@ public class Courses {
 	private JButton updateGPA;
 	private JTextField targetGPA;
 	private JButton submitTarget;
+	private JLabel tooFewCourses;
+	private JLabel extraCourses;
 	public Courses() {
-		frame = new JFrame();
-		frame.setBounds(900, 900, 900, 400);
-		
+		frame = new JFrame();		
 		JPanel panelContainer = new JPanel(new GridLayout(2, 2));
 		frame.setTitle("Courses");
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -79,8 +83,6 @@ public class Courses {
 		labelFuture = new JLabel("Future Courses");
 		labelSummary = new JLabel("Summary");
 		
-		
-	
 		//panel
 		panelPrevious = new JPanel();
 		panelPrevious.setLayout(new BoxLayout(panelPrevious, BoxLayout.Y_AXIS));
@@ -94,10 +96,8 @@ public class Courses {
 		// add panels
 		addPrevious = new JPanel();
 		addPrevious.setLayout(new BoxLayout(addPrevious, BoxLayout.Y_AXIS));
-		
 		addCurrent = new JPanel();
 		addCurrent.setLayout(new BoxLayout(addCurrent, BoxLayout.Y_AXIS));
-	
 		addFuture = new JPanel();
 		addFuture.setLayout(new BoxLayout(addFuture, BoxLayout.Y_AXIS));
 
@@ -130,29 +130,29 @@ public class Courses {
         });
         
         JButton add15Current = new JButton("Add 15 hrs");
-        add15Previous.addActionListener(new ActionListener() {
+        add15Current.addActionListener(new ActionListener() {
         		@Override
         		public void actionPerformed(ActionEvent e) {
         			Object[] newRowData = {"", "", 3};
         			for (int i = 0; i < 5; i++) {
-        				previousTableModel.addRow(newRowData);
+        				currentModel.addRow(newRowData);
         			}
         		}
         });
         JButton add15Future = new JButton("Add 15 hrs");
-        add15Previous.addActionListener(new ActionListener() {
+        add15Future.addActionListener(new ActionListener() {
         		@Override
         		public void actionPerformed(ActionEvent e) {
         			Object[] newRowData = {"", "", 3};
         			for (int i = 0; i < 5; i++) {
-        				previousTableModel.addRow(newRowData);
+        				futureModel.addRow(newRowData);
         			}
         		}
         });
         
         
         // selections
-		String[] grades = { "A", "B", "C", "D", "F" };
+		String[] grades = { "A", "B", "C", "D", "F", "N/A" };
 		String[] hours = {"1", "2", "3", "4", "5"};
 		previousHours = new JComboBox(hours);
 		currentHours = new JComboBox(hours);
@@ -228,16 +228,16 @@ public class Courses {
 		removeAllCurrent.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				currentTableModel.setRowCount(0);
-				//reset GPA
+				currentModel.setRowCount(0);
+				currentGPA.setText("Current GPA:" + getGPA(previousTableModel, currentModel));
 			}
 		});
 		removeAllFuture = new JButton("Remove All");
 		removeAllFuture.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				futureTableModel.setRowCount(0);
-				//reset GPA
+				futureModel.setRowCount(0);
+				currentGPA.setText("Current GPA:" + getGPA(previousTableModel, currentModel));
 			}
 		});
 		
@@ -248,6 +248,7 @@ public class Courses {
 			public void actionPerformed(ActionEvent e) {
 				if (previousTable.getSelectedRow() != -1) {
 					previousTableModel.removeRow(previousTable.getSelectedRow());
+					currentGPA.setText("Current GPA:" + getGPA(previousTableModel, currentModel));
 			}}
 		});
 
@@ -256,7 +257,8 @@ public class Courses {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				if (currentTable.getSelectedRow() != -1) {
-					currentTableModel.removeRow(currentTable.getSelectedRow());
+					currentModel.removeRow(currentTable.getSelectedRow());
+					currentGPA.setText("Current GPA:" + getGPA(previousTableModel, currentModel));
 			}}
 		});
 		
@@ -265,7 +267,8 @@ public class Courses {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				if (futureTable.getSelectedRow() != -1) {
-					futureTableModel.removeRow(futureTable.getSelectedRow());
+					futureModel.removeRow(futureTable.getSelectedRow());
+					currentGPA.setText("Current GPA:" + getGPA(previousTableModel, currentModel));
 			}}
 		});
 
@@ -284,6 +287,7 @@ public class Courses {
 				previousHours.setSelectedItem("1");
 				previousGrade.setSelectedItem("A");
 				previousName.setText("Name");
+				currentGPA.setText("Current GPA:" + getGPA(previousTableModel, currentModel));
 				addPrevious.setVisible(false);
 			}
 		});
@@ -296,6 +300,7 @@ public class Courses {
 				currentHours.setSelectedItem("1");
 				currentGrade.setSelectedItem("A");
 				currentName.setText("Name");
+				currentGPA.setText("Current GPA:" + getGPA(previousTableModel, currentModel));
 				addCurrent.setVisible(false);
 			}
 		});
@@ -304,10 +309,11 @@ public class Courses {
 			 public void actionPerformed(ActionEvent e) {
 				String hours = futureHours.getSelectedItem().toString();
 				Object[] newRowData = {futureGrade.getSelectedItem().toString(), futureName.getText(), Integer.parseInt(hours)};
-				futureTableModel.addRow(newRowData);
+				futureModel.addRow(newRowData);
 				futureHours.setSelectedItem("1");
 				futureGrade.setSelectedItem("A");
 				futureName.setText("Name");
+				currentGPA.setText("Current GPA:" + getGPA(previousTableModel, currentModel));
 				addFuture.setVisible(false);
 			}
 		});
@@ -375,26 +381,49 @@ public class Courses {
 		});
 	
 		currentGPA = new JLabel("Current GPA:" + getGPA(previousTableModel, currentModel));
-		targetGPA = new JTextField("Target GPA");
+		targetGPA = new JTextField("GPA");
+		targetGPA.setMaximumSize(new Dimension(300,20));
 		submitTarget = new JButton("submit target GPA");
 		submitTarget.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				Double targetInput = Double.parseDouble(targetGPA.getText());
 				Double currentGPA = getGPA(previousTableModel, currentModel);
+				Double currentGradePoints = getGradePoints(previousTableModel, currentModel);
 				
+				int numBlankUnits = getNumBlankClasses(currentModel, futureModel);
+				double requiredGradePoints = currentGPA * currentGradePoints + targetInput * numBlankUnits - currentGradePoints;
+				
+				System.out.println(requiredGradePoints + numBlankUnits);
+				double requiredGPA = requiredGradePoints / numBlankUnits ;
+				fillEmptyClasses(requiredGPA, currentModel, futureModel);
+				if (requiredGPA > 4.0) {
+					tooFewCourses.setVisible(true);
+					extraCourses.setVisible(false);
+				} else if (requiredGPA < 2.0) {
+					extraCourses.setVisible(true);
+					tooFewCourses.setVisible(false);
+				}
 			}
 		});
+		
+		tooFewCourses = new JLabel("Consider adding more classes");
+		extraCourses = new JLabel("You may not need to take this many");
+		tooFewCourses.setVisible(false);
+		extraCourses.setVisible(false);
 		panelSummary.add(labelSummary);
 		panelSummary.add(currentGPA);
 		panelSummary.add(updateGPA);
 		panelSummary.add(targetGPA);
 		panelSummary.add(submitTarget);
+		panelSummary.add(tooFewCourses);
+		panelSummary.add(extraCourses);
 		panelContainer.add(panelPrevious, 0, 0);
 		panelContainer.add(panelCurrent, 1, 0);
 		panelContainer.add(panelFuture, 1, 0);
 		panelContainer.add(panelSummary, 1, 1);
 		frame.add(panelContainer);
+		frame.pack();
 		frame.setVisible(true);
 		
 	}
@@ -412,6 +441,57 @@ public class Courses {
 		for(int i = 1; i < previousTableModel.getRowCount(); i++ ) {
 			totalHours = totalHours + (Integer) previousTableModel.getValueAt(i, 2);
 			if (previousTableModel.getValueAt(i,  0) == "A") {
+				cumulativePoints += (Integer) previousTableModel.getValueAt(i, 2) * 4.0;
+			} else if (previousTableModel.getValueAt(i,  0) == "B") {
+				cumulativePoints +=  (Integer) previousTableModel.getValueAt(i, 2) * 3.0;
+			} else if (previousTableModel.getValueAt(i, 0) == "C") {
+				cumulativePoints += (Integer) previousTableModel.getValueAt(i, 2) * 2.0;
+			} else if (previousTableModel.getValueAt(i, 0) == "D") {
+				cumulativePoints += (Integer) previousTableModel.getValueAt(i, 2) * 1.0;
+			}
+		}
+		
+		for (int j = 1; j < currentTableModel.getRowCount(); j++) {
+			totalHours = totalHours + (Integer) currentTableModel.getValueAt(j, 2);
+			if (currentTableModel.getValueAt(j,  0) == "A") {
+				cumulativePoints += (Integer) currentTableModel.getValueAt(j, 2) * 4.0;
+			} else if (currentTableModel.getValueAt(j,  0) == "B") {
+				cumulativePoints += (Integer) currentTableModel.getValueAt(j, 2) * 3.0;
+			} else if (currentTableModel.getValueAt(j, 0) == "C") {
+				cumulativePoints += (Integer) currentTableModel.getValueAt(j, 2) * 2.0;
+			} else if (currentTableModel.getValueAt(j, 0) == "D") {
+				cumulativePoints += (Integer) currentTableModel.getValueAt(j, 2) * 1.0;
+			}
+		}
+		
+//		for (int i = 1; i <= futureTableModel.getRowCount(); i++) {
+//			totalHours = totalHours + (Integer) futureTableModel.getValueAt(i, 2);
+//		}
+		
+		Double GPA = cumulativePoints / totalHours;
+		if (GPA.isNaN()) return 0.0;
+		return cumulativePoints / totalHours;		
+	}
+	
+	public int getNumBlankClasses(DefaultTableModel currentModel, DefaultTableModel futureModel) {
+		int numBlankUnits = 0;
+		for (int i = 0; i < currentModel.getRowCount(); i++ ) {
+			if (currentModel.getValueAt(i,  0) == "N/A") {
+				numBlankUnits = numBlankUnits + (Integer) currentModel.getValueAt(i, 2);
+			}
+		}
+		for (int j = 0; j < futureModel.getRowCount(); j++) {
+			if (futureModel.getValueAt(j, 0) == "N/A") {
+				numBlankUnits = numBlankUnits + (Integer) futureModel.getValueAt(j, 2);
+			}
+		}
+		return numBlankUnits;
+	}
+	
+	public double getGradePoints(DefaultTableModel previousTableModel, DefaultTableModel currentTableModel) {
+		double cumulativePoints = 0.0;
+		for(int i = 0; i < previousTableModel.getRowCount(); i++ ) {
+			if (previousTableModel.getValueAt(i,  0) == "A") {
 				cumulativePoints += 4.0;
 			} else if (previousTableModel.getValueAt(i,  0) == "B") {
 				cumulativePoints += 3.0;
@@ -423,16 +503,31 @@ public class Courses {
 		}
 		
 		for (int j = 1; j < currentTableModel.getRowCount(); j++) {
-			totalHours = totalHours + (Integer) currentTableModel.getValueAt(j, 2);
+			if (currentTableModel.getValueAt(j,  0) == "A") {
+				cumulativePoints += 4.0;
+			} else if (currentTableModel.getValueAt(j,  0) == "B") {
+				cumulativePoints += 3.0;
+			} else if (currentTableModel.getValueAt(j, 0) == "C") {
+				cumulativePoints += 2.0;
+			} else if (currentTableModel.getValueAt(j, 0) == "D") {
+				cumulativePoints += 1.0;
+			}
 		}
-		
-//		for (int i = 1; i <= futureTableModel.getRowCount(); i++) {
-//			totalHours = totalHours + (Integer) futureTableModel.getValueAt(i, 2);
-//		}
-		
-		Double GPA = cumulativePoints / totalHours;
-		if (GPA.isNaN()) return 0.0;
-		return cumulativePoints / totalHours;		
+		return cumulativePoints;
+	}
+	
+	public void fillEmptyClasses(Double GPA, DefaultTableModel currentModel, DefaultTableModel futureModel) {
+		for (int j = 1; j < currentModel.getRowCount(); j++) {
+			if (currentModel.getValueAt(j,  0) == "N/A") {
+				currentModel.setValueAt(GPA, j, 0);
+			}
+		}
+		for (int i = 1; i < futureModel.getRowCount(); i++) {
+			if (futureModel.getValueAt(i,  0) == "N/A") {
+				System.out.println("resetting "+ GPA);
+				futureModel.setValueAt(GPA, i, 0);
+			}
+		}
 	}
 	
 	public static void main(String[] args) {
